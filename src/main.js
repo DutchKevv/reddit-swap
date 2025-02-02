@@ -4,6 +4,8 @@ const bs58 = require("bs58");
 const { default: axios } = require("axios");
 require("dotenv").config();
 
+const SOL_THRESHOLD=parseInt(process.env.SOL_THRESHOLD, 10) || 10
+const CHECK_INTERVAL=parseInt(process.env.CHECK_INTERVAL, 10) || 180 // 3 minutes
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 const JUPITER_API = "https://token.jup.ag/all";
 const RAYDIUM_V4_PROGRAM_ID = new PublicKey(
@@ -38,9 +40,13 @@ class App {
       const displayData = []
 
       Object.keys(this.tokens).forEach((token) => {
+        const lastSwaps = this.tokens[token].swaps.filter((swap) => swap.time > Date.now() - (CHECK_INTERVAL * 1000))
+        const lastSwapsAmount = lastSwaps.reduce((acc, swap) => acc + swap.amount, 0)
+        
         displayData.push({
           token: token,
-          total: this.tokens[token].total
+          total: lastSwapsAmount,
+          totalSwaps: lastSwaps.length,
         })
       })
 
@@ -110,7 +116,6 @@ class App {
   parseDescription(description) {
     const lines = description.split(" ");
     const side = lines[3] === "SOL" ? "BUY" : "SELL";
-    console.log(description)
     
     if (lines[3] === "SOL" && lines[6] === "SOL") {
       return
@@ -143,6 +148,19 @@ class App {
     this.tokens[swap.token].total += swap.amount
 
     return swap
+  }
+
+  async getTokenMetadata() {
+    try {
+      const response = await axios.get(JUPITER_API);
+      return response.data.reduce((acc, token) => {
+        acc[token.address] = token;
+        return acc;
+      }, {});
+    } catch (error) {
+      console.error("Error fetching token metadata:", error);
+      return {};
+    }
   }
 }
 
@@ -184,15 +202,4 @@ app.start();
 //   });
 // }
 
-async function getTokenMetadata() {
-  try {
-    const response = await axios.get(JUPITER_API);
-    return response.data.reduce((acc, token) => {
-      acc[token.address] = token;
-      return acc;
-    }, {});
-  } catch (error) {
-    console.error("Error fetching token metadata:", error);
-    return {};
-  }
-}
+
