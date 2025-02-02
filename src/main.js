@@ -4,82 +4,86 @@ const bs58 = require("bs58");
 const { default: axios } = require("axios");
 require("dotenv").config();
 
-let readyForNewRequest = true;
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 const JUPITER_API = "https://token.jup.ag/all";
-// Raydium V4 AMM Program ID
 const RAYDIUM_V4_PROGRAM_ID = new PublicKey(
   "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 );
 
-const parseTransaction = async (signature) => {
-  const response = await fetch(
-    "https://api.helius.xyz/v0/transactions/?api-key=" + HELIUS_API_KEY,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        transactions: [signature],
-      }),
-    }
-  );
+class App {
 
-  const data = await response.json();
+  constructor() {
+    this.init()
+  }
 
-  return data[0];
-};
+  init() {
+    this.connection = new Connection(
+      "https://mainnet.helius-rpc.com?api-key=145de8ee-9bfc-4b90-b65f-cb53f0e64c73",
+      "finalized"
+    );
+    this.readyForNewRequest = true;
+    this.signatures = []
+  }
 
-async function listenToRaydiumSwaps() {
-  // Connect to Solana
-  // Initialize Solana connection (use your preferred RPC endpoint)
-  const connection = new Connection(
-    "https://mainnet.helius-rpc.com?api-key=145de8ee-9bfc-4b90-b65f-cb53f0e64c73",
-    "finalized"
-  );
+  async start() {
+    this.listenToRaydiumSwaps()
+    this.startTxDetailsLoop()  
+  }
 
-  // Get token metadata
-  // const tokenMetadata = await getTokenMetadata();
+  startTxDetailsLoop() {
+    setInterval(async () => {
+      const signaturesSlice = this.signatures.splice(0, 100)
+      const transaactions = await this.parseTransaction(signaturesSlice)
+      const transactionDescriptions = transaactions.map(transaaction => transaaction.description).filter(Boolean)
+      console.log(transactionDescriptions)
+    }, 1_000)
+  }
 
-  // Subscribe to program account changes
-  console.log("Starting to listen for Raydium swaps...");
-
-  connection.onLogs(
-    RAYDIUM_V4_PROGRAM_ID,
-    async (logs) => {
-      if (!logs.logs.some((log) => log.includes("Program log:"))) {
-        return;
+  parseTransaction = async (signatures) => {
+    const response = await fetch(
+      "https://api.helius.xyz/v0/transactions/?api-key=" + HELIUS_API_KEY,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transactions: signatures,
+        }),
       }
+    );
+  
+    const data = await response.json();
+  
+    return data;
+  };
 
-      if (!readyForNewRequest) {
-        return;
-      }
-
-      readyForNewRequest = false;
-
-      // Extract swap information from the transaction
-      const signature = logs.signature.toString();
-
-      // Get enriched transaction data from Helius
-      setTimeout(async () => {
-        try {
-          const enrichedTx = await parseTransaction(signature);
-          console.log(enrichedTx?.description);
-        } catch (error) {
-          console.error("Error processing swap:", error);
-        } finally {
+  listenToRaydiumSwaps() {  
+    // Get token metadata
+    // const tokenMetadata = await getTokenMetadata();
+  
+    console.log("Starting to listen for Raydium swaps...");
+  
+    this.connection.onLogs(
+      RAYDIUM_V4_PROGRAM_ID,
+      async (logs) => {
+        if (!logs.logs.some((log) => log.includes("Program log:"))) {
+          return;
         }
-      }, 10_000);
 
-      setTimeout(() => readyForNewRequest = true, process.env.SWAP_CHECK_DELAY || 1000);
-    },
-    "finalized"
-  );
+         // Extract swap information from the transaction
+         const signature = logs.signature.toString();
+    
+        // Get enriched transaction data from Helius
+        setTimeout(() => this.signatures.push(signature), 10_000);
+      },
+      "finalized"
+    );
+  }
 }
 
-// Start listening
-listenToRaydiumSwaps().catch(console.error);
+const app = new App
+app.start()
 // Jupiter API for token metadata
 
 
