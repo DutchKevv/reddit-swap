@@ -11,9 +11,13 @@ const RAYDIUM_V4_PROGRAM_ID = new PublicKey(
 );
 
 class App {
-
   constructor() {
-    this.init()
+    this.connection = null
+    this.readyForNewRequest = true;
+    this.signatures = [];
+    this.tokens = {};
+
+    this.init();
   }
 
   init() {
@@ -21,22 +25,44 @@ class App {
       "https://mainnet.helius-rpc.com?api-key=145de8ee-9bfc-4b90-b65f-cb53f0e64c73",
       "finalized"
     );
-    this.readyForNewRequest = true;
-    this.signatures = []
   }
 
   async start() {
-    this.listenToRaydiumSwaps()
-    this.startTxDetailsLoop()  
+    this.listenToRaydiumSwaps();
+    this.startTxDetailsLoop();
+    this.startDisplayTokensLoop();
+  }
+
+  startDisplayTokensLoop() {
+    setInterval(() => {
+      const displayData = []
+
+      Object.keys(this.tokens).forEach((token) => {
+        displayData.push({
+          token: token,
+          total: this.tokens[token].total
+        })
+      })
+
+      displayData.sort((a, b) => b.total - a.total)
+
+      console.log(displayData.splice(0, 10));
+    }, 10_000);
   }
 
   startTxDetailsLoop() {
     setInterval(async () => {
-      const signaturesSlice = this.signatures.splice(0, 100)
-      const transaactions = await this.parseTransaction(signaturesSlice)
-      const transactionDescriptions = transaactions.map(transaaction => transaaction.description).filter(Boolean)
-      console.log(transactionDescriptions)
-    }, 1_000)
+      const signaturesSlice = this.signatures.splice(0, 100);
+      const transaactions = await this.parseTransaction(signaturesSlice);
+
+      if (!transaactions?.length) {
+        return
+      }
+
+      transaactions
+        .filter(Boolean)
+        .map((transaaction) => this.parseDescription(transaaction.description))
+    }, 1_000);
   }
 
   parseTransaction = async (signatures) => {
@@ -52,18 +78,18 @@ class App {
         }),
       }
     );
-  
+
     const data = await response.json();
-  
+
     return data;
   };
 
-  listenToRaydiumSwaps() {  
+  listenToRaydiumSwaps() {
     // Get token metadata
     // const tokenMetadata = await getTokenMetadata();
-  
+
     console.log("Starting to listen for Raydium swaps...");
-  
+
     this.connection.onLogs(
       RAYDIUM_V4_PROGRAM_ID,
       async (logs) => {
@@ -71,21 +97,58 @@ class App {
           return;
         }
 
-         // Extract swap information from the transaction
-         const signature = logs.signature.toString();
-    
+        // Extract swap information from the transaction
+        const signature = logs.signature.toString();
+
         // Get enriched transaction data from Helius
         setTimeout(() => this.signatures.push(signature), 10_000);
       },
       "finalized"
     );
   }
+
+  parseDescription(description) {
+    const lines = description.split(" ");
+    const side = lines[3] === "SOL" ? "BUY" : "SELL";
+    console.log(description)
+    
+    if (lines[3] === "SOL" && lines[6] === "SOL") {
+      return
+    }
+
+    if (lines[3] !== "SOL" && lines[6] !== "SOL") {
+      return
+    }
+
+    const swap = {
+      time: new Date(),
+      description: description,
+      side: side,
+      token: side === "BUY" ? lines[6] : lines[3],
+      amount: parseFloat(side === "BUY" ? lines[2] : lines[5]),
+    }
+
+    if (!this.tokens[swap.token]) {
+      this.tokens[swap.token] = {
+        swaps: [],
+        total: 0
+      }
+    }
+
+    if (!swap.amount) {
+      return
+    }
+
+    this.tokens[swap.token].swaps.push(swap);
+    this.tokens[swap.token].total += swap.amount
+
+    return swap
+  }
 }
 
-const app = new App
-app.start()
+const app = new App();
+app.start();
 // Jupiter API for token metadata
-
 
 // return;
 // txInfo = await connection.getTransaction(signature, {
