@@ -51,22 +51,23 @@ export class App {
       // sort by highest
       displayData.sort((a, b) => b.total - a.total)
 
+      // grab top 10 tokens
       const top10Tokens = displayData.slice(0, 10)
 
       for (const token of top10Tokens) {
+        // load mint details if not already done
         if (!token.token.details) {
-          token.token.details = await this.getTokenSupply(token.token.address)
+          token.token.details = await this.getMintDetails(token.token.address)
           await sleep(1000)
         }
 
+        // calculate market cap
         if (token.token.details) {
-            const mcAmmount = token.token.details.totalSupply * token.token.swaps.at(-1).price * SOL_PRICE
-
-            const mcAccoumtStr = Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(mcAmmount)
-
-            token.mc = mcAccoumtStr
+          const mcAmount = token.token.details.totalSupply * token.token.swaps.at(-1).price * SOL_PRICE
+          token.mc = Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(mcAmount)
         }
 
+        // not needed to display
         delete token.token
       }
 
@@ -141,6 +142,11 @@ export class App {
     }
 
     const price = parseFloat(lines[2]) / parseFloat(lines[5])
+    const amount = parseFloat(side === 'BUY' ? lines[2] : lines[5])
+
+    if (!amount) {
+      return
+    }
 
     const swap: ISwap = {
       price,
@@ -149,7 +155,7 @@ export class App {
       description: transaction.description,
       side: side,
       token: side === 'BUY' ? lines[6] : lines[3],
-      amount: parseFloat(side === 'BUY' ? lines[2] : lines[5]),
+      amount,
     }
 
     if (!this.tokens[swap.token]) {
@@ -158,12 +164,8 @@ export class App {
         address: swap.token,
         swaps: [],
         total: 0,
-        details: null
+        details: null,
       }
-    }
-
-    if (!swap.amount) {
-      return
     }
 
     this.tokens[swap.token].swaps.push(swap)
@@ -185,7 +187,7 @@ export class App {
     }
   }
 
-  async getTokenSupply(tokenMintAddress: string) {
+  async getMintDetails(tokenMintAddress: string) {
     try {
       if (!isValidSolAddress(tokenMintAddress)) {
         return

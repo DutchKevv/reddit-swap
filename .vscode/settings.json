@@ -1,16 +1,6 @@
 {
-  "angular.enable-strict-mode-prompt": false,
   "prettier.semi": false,
   "editor.rulers": [
     140
-  ],
-  "sqltools.connections": [
-    {
-      "previewLimit": 50,
-      "driver": "SQLite",
-      "name": "sdsdf",
-      "database": "\\\\wsl.localhost\\Ubuntu\\home\\kewin\\Projects\\dlsignals\\core\\_data\\data.db"
-    }
-  ],
-  "sqltools.useNodeRuntime": true
+  ]
 }
