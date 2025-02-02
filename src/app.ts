@@ -8,6 +8,7 @@ require('dotenv').config()
 // const SOL_THRESHOLD = parseInt(process.env.SOL_THRESHOLD, 10) || 10;
 const CHECK_INTERVAL = parseInt(process.env.CHECK_INTERVAL, 10) || 180 // 3 minutes
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY
+const SOL_PRICE = parseInt(process.env.SOL_PRICE, 10) || 200 // TEMP - should be fetched
 const JUPITER_API = 'https://token.jup.ag/all'
 const RAYDIUM_V4_PROGRAM_ID = new PublicKey('675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8')
 
@@ -59,13 +60,16 @@ export class App {
         }
 
         if (token.token.details) {
-            token.mc = '$' + token.token.details.totalSupply * token.token.swaps.at(-1).price
+            const mcAmmount = token.token.details.totalSupply * token.token.swaps.at(-1).price * SOL_PRICE
+
+            const mcAccoumtStr = Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(mcAmmount)
+
+            token.mc = mcAccoumtStr
         }
 
         delete token.token
       }
 
-      // get market cap of highest 1
       console.log(top10Tokens)
     }, 10_000)
   }
