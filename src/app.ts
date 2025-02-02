@@ -42,14 +42,14 @@ export class App {
           token,
           address: token.address,
           mc: '',
-          total: lastSwapsAmount,
+          totalSOL: lastSwapsAmount,
           totalSwaps: lastSwaps.length,
           freezeAuthority: token.details?.freezeAuthority,
         }
       })
 
       // sort by highest
-      displayData.sort((a, b) => b.total - a.total)
+      displayData.sort((a, b) => b.totalSOL - a.totalSOL)
 
       // grab top 10 tokens
       const top10Tokens = displayData.slice(0, 10)
@@ -208,7 +208,7 @@ export class App {
       }
 
       const parsedData = data.parsed.info
-      
+
       // Calculate total supply considering decimals
       const totalSupply = Number(parsedData.supply) / Math.pow(10, parsedData.decimals)
 
