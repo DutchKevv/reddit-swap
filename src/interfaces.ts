@@ -26,4 +26,7 @@ export interface IMintDetails {
   totalSupply: number
 }
 
-export type TransactionSide = 'BUY' | 'SELL'
+export enum TransactionSide {
+  BUY = 'BUY',
+  SELL = 'SELL',
+}

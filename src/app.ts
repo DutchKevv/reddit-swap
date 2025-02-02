@@ -1,9 +1,8 @@
 import { Connection, PublicKey } from '@solana/web3.js'
-import { default as axios } from 'axios'
+import axios from 'axios'
 import { EnrichedTransaction } from 'helius-sdk'
-import { IMintDetails, ISwap, IToken } from './interfaces'
+import { IMintDetails, ISwap, IToken, TransactionSide } from './interfaces'
 import { isValidSolAddress, sleep } from './utils'
-require('dotenv').config()
 
 // const SOL_THRESHOLD = parseInt(process.env.SOL_THRESHOLD, 10) || 10;
 const CHECK_INTERVAL = parseInt(process.env.CHECK_INTERVAL, 10) || 180 // 3 minutes
@@ -45,6 +44,7 @@ export class App {
           mc: '',
           total: lastSwapsAmount,
           totalSwaps: lastSwaps.length,
+          freezeAuthority: token.details?.freezeAuthority,
         }
       })
 
@@ -103,10 +103,7 @@ export class App {
   }
 
   listenToRaydiumSwaps() {
-    // Get token metadata
-    // const tokenMetadata = await getTokenMetadata();
-
-    console.log('Starting to listen for Raydium swaps...')
+    console.log('Starting to listen for Raydium swaps... Give it some time to warm up...')
 
     this.connection.onLogs(
       RAYDIUM_V4_PROGRAM_ID,
@@ -127,7 +124,7 @@ export class App {
 
   parseTransaction(transaction: EnrichedTransaction) {
     const lines = transaction.description.split(' ')
-    const side = lines[3] === 'SOL' ? 'BUY' : 'SELL'
+    const side = lines[3] === 'SOL' ? TransactionSide.BUY : TransactionSide.SELL
 
     if (side !== 'BUY') {
       return
@@ -211,7 +208,7 @@ export class App {
       }
 
       const parsedData = data.parsed.info
-
+      
       // Calculate total supply considering decimals
       const totalSupply = Number(parsedData.supply) / Math.pow(10, parsedData.decimals)
 
