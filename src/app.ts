@@ -21,7 +21,7 @@ export class App {
   }
 
   init() {
-    this.connection = new Connection('https://mainnet.helius-rpc.com?api-key=145de8ee-9bfc-4b90-b65f-cb53f0e64c73', 'finalized')
+    this.connection = new Connection(`https://mainnet.helius-rpc.com?api-key=${HELIUS_API_KEY}`, 'finalized')
   }
 
   async start() {
